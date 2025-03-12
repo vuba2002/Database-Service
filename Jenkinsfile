@@ -124,13 +124,52 @@ pipeline {
             }
         }
 
+        stage("Setup ImagePullSecret") {
+            steps {
+                script {
+                    sh """
+                        echo "Creating or updating imagePullSecret in namespace mock-project"
+                        aws ecr get-login-password --region ${REGION} | \
+                        kubectl create secret docker-registry ecr-registry-secret \
+                          --docker-server=${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com \
+                          --docker-username=AWS \
+                          --docker-password=$(aws ecr get-login-password --region ${REGION}) \
+                          --namespace=mock-project \
+                          --dry-run=client -o yaml | kubectl apply -f -
+
+                        echo "Verifying imagePullSecret existence..."
+                        kubectl get secret ecr-registry-secret -n mock-project
+                    """
+                }
+            }
+        }
+
         stage("Load Database Credentials") {
             steps {
-                withCredentials([file(credentialsId: 'database-credentials', variable: 'DATABASE_FILE')]) {
+
+                withCredentials([file(credentialsId: 'database-secret', variable: 'DATABASE_SECRET')]) {
                     script {
-                        sh "cp -f ${DATABASE_FILE} Deloyment/Database.Secret.yaml"
+                        sh "cp -f ${DATABASE_SECRET} Deployment/Database.Secret.yaml"
                     }
                 }
+
+                withCredentials([file(credentialsId: 'database-configmap', variable: 'DATABASE_CONFIGMAP')]) {
+                    script {
+                        sh "cp -f ${DATABASE_CONFIGMAP} Deployment/Database.Configmap.yaml"
+                    }
+                }
+
+                withCredentials([file(credentialsId: 'database-deployment', variable: 'DATABASE_DEPLOYMENT')]) {
+                    script {
+                        sh "cp -f ${DATABASE_DEPLOYMENT} Deployment/Database.Deployment.yaml"
+                    }
+                }
+
+                withCredentials([file(credentialsId: 'database-service', variable: 'DATABASE_SERVICE')]) {
+                    script {
+                        sh "cp -f ${DATABASE_SERVICE} Deployment/Database.Service.yaml"
+                    }
+                }                               
             }
         }
 
