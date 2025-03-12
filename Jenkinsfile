@@ -43,7 +43,7 @@ pipeline {
         stage("File System Scan") {
             steps {
                 sh '''
-                    trivy fs --format table -o trivy-fs-report.html .
+                    trivy fs --format table -o trivy-fs-report.html . 
                 '''
             }            
         }
@@ -81,7 +81,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage("Setup AWS Credentials") {
             steps {
                 withCredentials([aws(credentialsId: 'aws-credentials', region: "${REGION}")]) {  
@@ -127,19 +127,27 @@ pipeline {
         stage("Setup ImagePullSecret") {
             steps {
                 script {
-                    sh """
-                        echo "Creating or updating imagePullSecret in namespace mock-project"
-                        aws ecr get-login-password --region ${REGION} | \
-                        kubectl create secret docker-registry ecr-registry-secret \
-                          --docker-server=${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com \
-                          --docker-username=AWS \
-                          --docker-password=$(aws ecr get-login-password --region ${REGION}) \
-                          --namespace=mock-project \
-                          --dry-run=client -o yaml | kubectl apply -f -
+                    withKubeConfig(caCertificate: '', 
+                                clusterName: '', 
+                                contextName: '', 
+                                credentialsId: 'eks-credentials', 
+                                namespace: '', 
+                                restrictKubeConfigAccess: false, 
+                                serverUrl: '') {
+                        sh """
+                            echo "Creating or updating imagePullSecret in namespace mock-project"
+                            aws ecr get-login-password --region ${REGION} | \
+                            kubectl create secret docker-registry ecr-registry-secret \
+                            --docker-server=${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com \
+                            --docker-username=AWS \
+                            --docker-password=\$(aws ecr get-login-password --region ${REGION}) \
+                            --namespace=mock-project \
+                            --dry-run=client -o yaml | kubectl apply -f -
 
-                        echo "Verifying imagePullSecret existence..."
-                        kubectl get secret ecr-registry-secret -n mock-project
-                    """
+                            echo "Verifying imagePullSecret existence..."
+                            kubectl get secret ecr-registry-secret -n mock-project
+                        """
+                    }
                 }
             }
         }
