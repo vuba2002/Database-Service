@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: database-service
-        image: 905418033689.dkr.ecr.ap-southeast-1.amazonaws.com/database-service:17f6071
+        image: 905418033689.dkr.ecr.ap-southeast-1.amazonaws.com/database-service:latest
         ports:
         - containerPort: 8081
         envFrom:
